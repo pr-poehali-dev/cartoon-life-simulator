@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import IntroScreen from "@/components/game/IntroScreen";
 import CareerChoiceScreen from "@/components/game/CareerChoiceScreen";
 import GameScreen from "@/components/game/GameScreen";
+import EndScreen from "@/components/game/EndScreen";
 import {
   Stats, Career, GameEvent, Location,
   CAREERS, STAGE_INFO,
@@ -9,7 +10,7 @@ import {
 } from "@/components/game/game.types";
 
 export default function Index() {
-  const [screen, setScreen] = useState<"intro" | "game" | "career_choice">("intro");
+  const [screen, setScreen] = useState<"intro" | "game" | "career_choice" | "end">("intro");
   const [age, setAge] = useState(0);
   const [playerName, setPlayerName] = useState("Алексей");
   const [stats, setStats] = useState<Stats>({
@@ -77,6 +78,12 @@ export default function Index() {
           energy:    clamp(s.energy    + 0.5),
         }));
 
+        // End of life
+        if (newAge >= 80) {
+          setIsPlaying(false);
+          setTimeout(() => setScreen("end"), 800);
+        }
+
         return newAge;
       });
 
@@ -127,6 +134,22 @@ export default function Index() {
     setTab("career");
   }
 
+  function handleRestart() {
+    setAge(0);
+    setPlayerName("Алексей");
+    setStats({ health: 90, happiness: 80, energy: 100, money: 10, education: 0, reputation: 0 });
+    setCareers(CAREERS);
+    setSelectedCareer(null);
+    setEvents([]);
+    setActiveLocation("home");
+    setTab("world");
+    setIsPlaying(false);
+    setStageTransition(false);
+    setActionCooldown(false);
+    setTotalMoney(0);
+    setScreen("intro");
+  }
+
   // ─── Screens ──────────────────────────────────────────────────────────────
 
   if (screen === "intro") {
@@ -135,6 +158,18 @@ export default function Index() {
         playerName={playerName}
         setPlayerName={setPlayerName}
         onStart={() => { setScreen("game"); setIsPlaying(true); }}
+      />
+    );
+  }
+
+  if (screen === "end") {
+    return (
+      <EndScreen
+        playerName={playerName}
+        stats={stats}
+        totalMoney={totalMoney}
+        career={selectedCareer ? careers.find(c => c.id === selectedCareer.id) ?? null : null}
+        onRestart={handleRestart}
       />
     );
   }
