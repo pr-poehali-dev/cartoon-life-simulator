@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import {
-  Career, GameEvent, Location, Stats, LifeStage,
+  Career, GameEvent, Location, Stats, LifeStage, Family,
   CAREERS, LOCATIONS, STAGE_INFO, TOWN_BG, CHAR_IMG,
 } from "./game.types";
+import FamilyPanel from "./FamilyPanel";
 
 // ─── StatBar ─────────────────────────────────────────────────────────────────
 
@@ -57,24 +58,30 @@ interface GameScreenProps {
   selectedCareer: Career | null;
   events: GameEvent[];
   activeLocation: string;
-  tab: "world" | "career" | "stats";
+  tab: "world" | "career" | "stats" | "family";
   isPlaying: boolean;
   stageTransition: boolean;
   actionCooldown: boolean;
   totalMoney: number;
   currentStage: LifeStage;
-  onSetTab: (tab: "world" | "career" | "stats") => void;
+  family: Family;
+  onSetTab: (tab: "world" | "career" | "stats" | "family") => void;
   onSetEvents: (fn: (es: GameEvent[]) => GameEvent[]) => void;
   onTogglePlay: () => void;
   onLocationClick: (loc: Location) => void;
   onOpenCareerChoice: () => void;
+  onMeetPartner: () => void;
+  onImproveRelationship: () => void;
+  onHaveChild: () => void;
+  onSpendTimeWithFamily: () => void;
 }
 
 export default function GameScreen({
   age, playerName, stats, careers, selectedCareer, events,
   activeLocation, tab, isPlaying, stageTransition, actionCooldown,
-  totalMoney, currentStage, onSetTab, onSetEvents, onTogglePlay,
-  onLocationClick, onOpenCareerChoice,
+  totalMoney, currentStage, family, onSetTab, onSetEvents, onTogglePlay,
+  onLocationClick, onOpenCareerChoice, onMeetPartner, onImproveRelationship,
+  onHaveChild, onSpendTimeWithFamily,
 }: GameScreenProps) {
   const stageInfo = STAGE_INFO[currentStage];
   const availableLocations = LOCATIONS.filter(l => l.available(age));
@@ -163,18 +170,19 @@ export default function GameScreen({
       <div className="flex-shrink-0 px-4 py-2">
         <div className="glass rounded-xl p-1 flex gap-1">
           {[
-            { id: "world",  label: "Мир",       icon: "Map" },
-            { id: "career", label: "Карьера",    icon: "Briefcase" },
-            { id: "stats",  label: "Статистика", icon: "BarChart2" },
+            { id: "world",  label: "Мир",     icon: "Map" },
+            { id: "career", label: "Карьера",  icon: "Briefcase" },
+            { id: "family", label: "Семья",    icon: "Heart" },
+            { id: "stats",  label: "Итоги",    icon: "BarChart2" },
           ].map(t => (
             <button
               key={t.id}
-              onClick={() => onSetTab(t.id as "world" | "career" | "stats")}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all ${
+              onClick={() => onSetTab(t.id as "world" | "career" | "stats" | "family")}
+              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-medium transition-all ${
                 tab === t.id ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Icon name={t.icon as Parameters<typeof Icon>[0]["name"]} size={14} />
+              <Icon name={t.icon as Parameters<typeof Icon>[0]["name"]} size={13} />
               {t.label}
             </button>
           ))}
@@ -310,6 +318,18 @@ export default function GameScreen({
               </div>
             </div>
           </div>
+        )}
+
+        {/* FAMILY */}
+        {tab === "family" && (
+          <FamilyPanel
+            age={age}
+            family={family}
+            onMeetPartner={onMeetPartner}
+            onImproveRelationship={onImproveRelationship}
+            onHaveChild={onHaveChild}
+            onSpendTimeWithFamily={onSpendTimeWithFamily}
+          />
         )}
 
         {/* STATS */}

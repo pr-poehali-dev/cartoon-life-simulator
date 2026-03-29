@@ -3,11 +3,23 @@ import IntroScreen from "@/components/game/IntroScreen";
 import CareerChoiceScreen from "@/components/game/CareerChoiceScreen";
 import GameScreen from "@/components/game/GameScreen";
 import EndScreen from "@/components/game/EndScreen";
+import { PARTNER_NAMES, CHILD_NAMES, PARTNER_EMOJIS } from "@/components/game/FamilyPanel";
 import {
-  Stats, Career, GameEvent, Location,
+  Stats, Career, GameEvent, Location, Family, FamilyMember,
   CAREERS, STAGE_INFO,
   getStage, clamp,
 } from "@/components/game/game.types";
+
+const CHILD_EMOJIS = ["👦", "👧", "🧒"];
+
+const DEFAULT_FAMILY: Family = {
+  hasPartner: false,
+  partnerName: "",
+  partnerEmoji: "",
+  relationshipLevel: 0,
+  children: [],
+  marriageAge: null,
+};
 
 export default function Index() {
   const [screen, setScreen] = useState<"intro" | "game" | "career_choice" | "end">("intro");
@@ -20,11 +32,12 @@ export default function Index() {
   const [selectedCareer, setSelectedCareer] = useState<Career | null>(null);
   const [events, setEvents] = useState<GameEvent[]>([]);
   const [activeLocation, setActiveLocation] = useState<string>("home");
-  const [tab, setTab] = useState<"world" | "career" | "stats">("world");
+  const [tab, setTab] = useState<"world" | "career" | "stats" | "family">("world");
   const [isPlaying, setIsPlaying] = useState(false);
   const [stageTransition, setStageTransition] = useState(false);
   const [actionCooldown, setActionCooldown] = useState(false);
   const [totalMoney, setTotalMoney] = useState(0);
+  const [family, setFamily] = useState<Family>(DEFAULT_FAMILY);
 
   const currentStage = getStage(age);
 
@@ -77,6 +90,38 @@ export default function Index() {
           happiness: clamp(s.happiness - 0.2),
           energy:    clamp(s.energy    + 0.5),
         }));
+
+        // Family passive effects each year
+        setFamily(f => {
+          if (!f.hasPartner) return f;
+          // Relationship slightly decays without attention
+          const newRelLevel = clamp(f.relationshipLevel - 0.5);
+          // Children grow up
+          const updatedChildren = f.children.map(c => ({
+            ...c,
+            age: c.age + 1,
+            happiness: clamp(c.happiness - 0.3),
+          }));
+          return { ...f, relationshipLevel: newRelLevel, children: updatedChildren };
+        });
+
+        // Partner gives happiness bonus each year
+        setFamily(f => {
+          if (!f.hasPartner) return f;
+          setStats(s => ({ ...s, happiness: clamp(s.happiness + 1.5) }));
+          return f;
+        });
+
+        // Each child gives happiness but costs money
+        setFamily(f => {
+          if (f.children.length === 0) return f;
+          setStats(s => ({
+            ...s,
+            happiness: clamp(s.happiness + f.children.length * 0.5),
+            money:     clamp(s.money - f.children.length * 0.3),
+          }));
+          return f;
+        });
 
         // End of life
         if (newAge >= 80) {
@@ -134,6 +179,72 @@ export default function Index() {
     setTab("career");
   }
 
+  // ─── Family handlers ──────────────────────────────────────────────────────
+
+  function handleMeetPartner() {
+    const name  = PARTNER_NAMES[Math.floor(Math.random() * PARTNER_NAMES.length)];
+    const emoji = PARTNER_EMOJIS[Math.floor(Math.random() * PARTNER_EMOJIS.length)];
+    setFamily(f => ({ ...f, hasPartner: true, partnerName: name, partnerEmoji: emoji, relationshipLevel: 30 }));
+    addEvent(`Познакомился с ${name}!`, "💕", "positive");
+    setStats(s => ({ ...s, happiness: clamp(s.happiness + 15) }));
+  }
+
+  function handleImproveRelationship() {
+    setFamily(f => {
+      const newLevel = clamp(f.relationshipLevel + 12);
+      // Proposal — marry when hitting 60+ for the first time
+      if (f.marriageAge === null && newLevel >= 60 && f.relationshipLevel < 60) {
+        addEvent(`Свадьба с ${f.partnerName}!`, "💍", "milestone");
+        setStats(s => ({ ...s, happiness: clamp(s.happiness + 20), reputation: clamp(s.reputation + 10) }));
+        return { ...f, relationshipLevel: newLevel, marriageAge: age };
+      }
+      addEvent(`Романтический вечер с ${f.partnerName}`, "🌹", "positive");
+      setStats(s => ({ ...s, happiness: clamp(s.happiness + 8), money: clamp(s.money - 5) }));
+      return { ...f, relationshipLevel: newLevel };
+    });
+  }
+
+  function handleHaveChild() {
+    setFamily(f => {
+      if (!f.hasPartner || age > 50 || f.children.length >= 4) return f;
+      const name  = CHILD_NAMES[Math.floor(Math.random() * CHILD_NAMES.length)];
+      const emoji = CHILD_EMOJIS[Math.floor(Math.random() * CHILD_EMOJIS.length)];
+      const child: FamilyMember = {
+        id:       Date.now().toString(),
+        name,
+        relation: "child",
+        age:      0,
+        emoji,
+        happiness: 80,
+      };
+      addEvent(`Родился ${name}!`, "👶", "milestone");
+      setStats(s => ({
+        ...s,
+        happiness: clamp(s.happiness + 20),
+        money:     clamp(s.money - 20),
+        energy:    clamp(s.energy - 15),
+      }));
+      return { ...f, children: [...f.children, child] };
+    });
+  }
+
+  function handleSpendTimeWithFamily() {
+    setFamily(f => {
+      if (!f.hasPartner) return f;
+      const updatedChildren = f.children.map(c => ({ ...c, happiness: clamp(c.happiness + 10) }));
+      addEvent("Провёл время с семьёй", "🏡", "positive");
+      setStats(s => ({
+        ...s,
+        happiness:  clamp(s.happiness + 10),
+        reputation: clamp(s.reputation + 3),
+        energy:     clamp(s.energy - 5),
+      }));
+      return { ...f, relationshipLevel: clamp(f.relationshipLevel + 5), children: updatedChildren };
+    });
+  }
+
+  // ─── Restart ──────────────────────────────────────────────────────────────
+
   function handleRestart() {
     setAge(0);
     setPlayerName("Алексей");
@@ -147,6 +258,7 @@ export default function Index() {
     setStageTransition(false);
     setActionCooldown(false);
     setTotalMoney(0);
+    setFamily(DEFAULT_FAMILY);
     setScreen("intro");
   }
 
@@ -200,11 +312,16 @@ export default function Index() {
       actionCooldown={actionCooldown}
       totalMoney={totalMoney}
       currentStage={currentStage}
+      family={family}
       onSetTab={setTab}
       onSetEvents={setEvents}
       onTogglePlay={() => setIsPlaying(p => !p)}
       onLocationClick={handleLocation}
       onOpenCareerChoice={() => setScreen("career_choice")}
+      onMeetPartner={handleMeetPartner}
+      onImproveRelationship={handleImproveRelationship}
+      onHaveChild={handleHaveChild}
+      onSpendTimeWithFamily={handleSpendTimeWithFamily}
     />
   );
 }

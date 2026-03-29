@@ -45,6 +45,24 @@ export interface Location {
   statEffect: Partial<Stats>;
 }
 
+export interface FamilyMember {
+  id: string;
+  name: string;
+  relation: "partner" | "child";
+  age: number;
+  emoji: string;
+  happiness: number;
+}
+
+export interface Family {
+  hasPartner: boolean;
+  partnerName: string;
+  partnerEmoji: string;
+  relationshipLevel: number; // 0-100
+  children: FamilyMember[];
+  marriageAge: number | null;
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 export const CAREERS: Career[] = [
